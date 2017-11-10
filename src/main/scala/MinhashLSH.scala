@@ -25,6 +25,8 @@ object MinhashLSH extends App {
     (doc._2, minHash(doc._1, coeffs))
   })
 
+  println("Using a threshold size of " + threshold)
+  println("Using shingle size of " + shingleSize)
 
   // This can probably be improved...
   val size = signatures.size
@@ -52,7 +54,7 @@ object MinhashLSH extends App {
 
   /** For each Document, convert k-shingles to integers
     *
-    * @param doc
+    * @param doc Document containing the shingles to be hashed
     * @return HashedShingles set of ints
     */
   private def hashShingles(doc: Document): HashedShingles =
@@ -74,9 +76,9 @@ object MinhashLSH extends App {
 
   /** Used to check similarity of two minhashed signatures
     *
-    * @param sigOne
-    * @param sigTwo
-    * @return
+    * @param sigOne Seq of Signatures
+    * @param sigTwo Seq of Signatures
+    * @return Minhash similarity
     */
   private def similarity(sigOne: Signature, sigTwo: Signature): Double = {
     var count = 0
@@ -98,7 +100,6 @@ object MinhashLSH extends App {
       if (result < max) result else max
     })
   }
-
 
   /** Generate Tuple of random coefficients
     *
