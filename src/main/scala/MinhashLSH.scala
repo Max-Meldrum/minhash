@@ -28,15 +28,32 @@ object MinhashLSH extends App {
   println("Using a threshold size of " + threshold)
   println("Using shingle size of " + shingleSize)
 
-  // This can probably be improved...
-  val size = signatures.size
-  for (i <- 0 to size-1) {
-    val signature = signatures(i)._2
-    for (j <- (i +1) to (size-1)) {
-      if (similarity(signature, signatures(j)._2) >= threshold) {
-        println("Document " + files(i) + " matches with " + files(j))
+  val sim = (s1: Signature, s2: Signature) => similarity(s1, s2)
+  val jacc = (s1: Signature, s2: Signature) => jaccardSimilarity(s1, s2)
+
+  // Measure time of running minhash similarities and jaccard similarity
+  time(compare(sim))
+  time(compare(jacc))
+
+  private def compare(f: (Signature, Signature) => BigDecimal): Unit = {
+    val size = signatures.size
+    for (i <- 0 to size-1) {
+      val signature = signatures(i)._2
+      for (j <- (i +1) to (size-1)) {
+        if (f(signature, signatures(j)._2) >= threshold) {
+          println("Document " + files(i) + " matches with " + files(j))
+        }
       }
     }
+  }
+
+  // Cred to https://gist.github.com/mariussoutier/3293709
+  def time[T](block: => T): T = {
+    val start = System.currentTimeMillis
+    val res = block
+    val totalTime = System.currentTimeMillis - start
+    println("Elapsed time: %1d ms".format(totalTime))
+    res
   }
 
   /** Get K-shingles from a file
@@ -80,13 +97,13 @@ object MinhashLSH extends App {
     * @param sigTwo Seq of Signatures
     * @return Minhash similarity
     */
-  private def similarity(sigOne: Signature, sigTwo: Signature): Double = {
+  private def similarity(sigOne: Signature, sigTwo: Signature): BigDecimal = {
     var count = 0
     for (i <- 0 to sigOne.size-1) {
       if (sigOne(i) == sigTwo(i))
         count += 1
     }
-    count.toDouble/sigOne.size.toDouble
+    return BigDecimal(count.toDouble/sigOne.size.toDouble).setScale(2, BigDecimal.RoundingMode.HALF_UP)
   }
 
   /**
