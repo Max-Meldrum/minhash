@@ -6,7 +6,7 @@ object MinhashLSH extends App {
   type HashedShingles = Set[Int]
   type Signature = Seq[Int]
 
-  val shingleSize = 5
+  val shingleSize = 9
   val minHashFunctions = 100
   val threshold = 0.5
   val maxShingle = 2147483647
@@ -15,34 +15,63 @@ object MinhashLSH extends App {
 
 
   val files = Seq("data/data.txt", "data/data1.txt", "data/data2.txt", "data/data3.txt", "data/data4.txt")
-  val documents: Seq[Document] = files.map(file => getShinglesFromFile(file, shingleSize))
-  val hashedDocuments: Seq[(HashedShingles, Int)] = documents.map(doc => hashShingles(doc))
-    .toIndexedSeq
-    .zipWithIndex
+  val biggerFiles = Seq("data/2007_audi_a6", "data/2007_audi_a8", "data/2007_audi_q7",
+    "data/2007_audi_rs4", "data/2007_audi_s8", "data/2007_bmw_3_series", "data/2007_bmw_5_series",
+    "data/2007_bmw_6_series", "data/2007_bmw_x3", "data/2007_bmw_x5")
 
-  val coeffs = randomHashCoefficients(minHashFunctions)
-  val signatures: Seq[(Int, Seq[Int])] = hashedDocuments.map(doc => {
-    (doc._2, minHash(doc._1, coeffs))
-  })
+  checkFiles(files)
+  checkFiles(biggerFiles)
 
-  println("Using a threshold size of " + threshold)
-  println("Using shingle size of " + shingleSize)
+  /** Just a helper to allow us to test different Sequences of files
+    *
+    * @param files Seq of files to be evaluated
+    */
+  private def checkFiles(files: Seq[String]): Unit = {
+    println("Files being checked:")
+    files.foreach(file => print(file + ", "))
+    print("\n")
 
-  val sim = (s1: Signature, s2: Signature) => similarity(s1, s2)
-  val jacc = (s1: Signature, s2: Signature) => jaccardSimilarity(s1, s2)
+    val documents: Seq[Document] = files.map(file => getShinglesFromFile(file, shingleSize))
+    val hashedDocuments: Seq[(HashedShingles, Int)] = documents.map(doc => hashShingles(doc))
+      .toIndexedSeq
+      .zipWithIndex
 
-  // Measure time of running minhash similarities and jaccard similarity
-  time(compare(sim))
-  time(compare(jacc))
+    val coeffs = randomHashCoefficients(minHashFunctions)
+    val signatures: Seq[(Int, Seq[Int])] = hashedDocuments.map(doc => {
+      (doc._2, minHash(doc._1, coeffs))
+    })
 
-  private def compare(f: (Signature, Signature) => BigDecimal): Unit = {
-    val size = signatures.size
-    for (i <- 0 to size-1) {
-      val signature = signatures(i)._2
-      for (j <- (i +1) to (size-1)) {
-        if (f(signature, signatures(j)._2) >= threshold) {
+    val sigItems = signatures.map(_._2)
+    val hashedItems = hashedDocuments.map(_._1)
+
+    println("Using a threshold size of " + threshold)
+    println("Using shingle size of " + shingleSize)
+    println("Going through " + files.size + " files\n")
+
+    val sim = (s1: Signature, s2: Signature) => similarity(s1, s2)
+    val jacc = (s1: HashedShingles, s2: HashedShingles) => jaccardSimilarity(s1, s2)
+
+    // Measure time of running minhash similarities and jaccard similarity
+    println("Running check with Minhash similarity")
+    time(compare(sim, sigItems))
+    println("Running check with Jaccard similarity")
+    time(compare(jacc, hashedItems))
+    print("\n")
+  }
+
+  /** Compare helper that allows us to check matching files
+    *
+    * @param f function that does the similarity check between two Signatures or HashedShingles
+    * @param items Seq of collected Signatures/HashedShingles that we are checking
+    * @tparam T Type -> Signature || HashedShingles
+    */
+  private def compare[T](f: (T, T) => BigDecimal, items: Seq[T]): Unit = {
+    val size = items.size-1
+    for (i <- 0 to size) {
+      val signature = items(i)
+      for (j <- (i +1) to size) {
+        if (f(signature, items(j)) >= threshold)
           println("Document " + files(i) + " matches with " + files(j))
-        }
       }
     }
   }
@@ -80,13 +109,13 @@ object MinhashLSH extends App {
 
   /** Calculate the Jaccard Similarity between two sets
     *
-    * @param sigOne Set of k-shingles
-    * @param sigTwo Set of k-shingles
+    * @param h1 Set of k-shingles
+    * @param h2 Set of k-shingles
     * @return intersection/union as BigDecimal
     */
-  private def jaccardSimilarity(sigOne: Signature, sigTwo: Signature): BigDecimal = {
-    val intersection = sigOne.intersect(sigTwo).size
-    val union = sigOne.union(sigTwo).size
+  private def jaccardSimilarity(h1: HashedShingles, h2: HashedShingles): BigDecimal = {
+    val intersection = h1.intersect(h2).size
+    val union = h1.union(h2).size
     return BigDecimal(intersection.toDouble/union.toDouble).setScale(2, BigDecimal.RoundingMode.HALF_UP)
   }
 
@@ -106,9 +135,10 @@ object MinhashLSH extends App {
     return BigDecimal(count.toDouble/sigOne.size.toDouble).setScale(2, BigDecimal.RoundingMode.HALF_UP)
   }
 
-  /**
+  /** Create signatures for a document
     *
     * @param hashedShingles Shingles converted to integers
+    * @return Seq of signatures
     */
   private def minHash(hashedShingles: HashedShingles, coeffs: Seq[(Int, Int)]): Seq[Int] = {
     coeffs.map(co => {
