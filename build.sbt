@@ -1,4 +1,4 @@
-name := "similar_items"
+name := "minhash"
 
 version := "1.0"
 

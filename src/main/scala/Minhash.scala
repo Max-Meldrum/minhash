@@ -1,12 +1,12 @@
 import scala.io.Source
 import scala.util.Random
 
-object MinhashLSH extends App {
+object Minhash extends App {
   type Document = Set[String]
   type HashedShingles = Set[Int]
   type Signature = Seq[Int]
 
-  val shingleSize = 9
+  val shingleSize = 5
   val minHashFunctions = 100
   val threshold = 0.5
   val maxShingle = 2147483647
@@ -49,13 +49,13 @@ object MinhashLSH extends App {
     println("Going through " + files.size + " files\n")
 
     val sim = (s1: Signature, s2: Signature) => similarity(s1, s2)
-    val jacc = (s1: HashedShingles, s2: HashedShingles) => jaccardSimilarity(s1, s2)
+    val jacc = (h1: HashedShingles, h2: HashedShingles) => jaccardSimilarity(h1, h2)
 
     // Measure time of running minhash similarities and jaccard similarity
     println("Running check with Minhash similarity")
-    time(compare(sim, sigItems))
+    time(compare(sim, sigItems, files))
     println("Running check with Jaccard similarity")
-    time(compare(jacc, hashedItems))
+    time(compare(jacc, hashedItems, files))
     print("\n")
   }
 
@@ -65,7 +65,7 @@ object MinhashLSH extends App {
     * @param items Seq of collected Signatures/HashedShingles that we are checking
     * @tparam T Type -> Signature || HashedShingles
     */
-  private def compare[T](f: (T, T) => BigDecimal, items: Seq[T]): Unit = {
+  private def compare[T](f: (T, T) => BigDecimal, items: Seq[T], files: Seq[String]): Unit = {
     val size = items.size-1
     for (i <- 0 to size) {
       val signature = items(i)
