@@ -1,5 +1,5 @@
 import scala.io.Source
-import scala.util.Random
+import scala.util.{Failure, Random, Success, Try}
 
 object Minhash extends App {
   type Document = Set[String]
@@ -32,17 +32,11 @@ object Minhash extends App {
     print("\n")
 
     val documents: Seq[Document] = files.map(file => getShinglesFromFile(file, shingleSize))
-    val hashedDocuments: Seq[(HashedShingles, Int)] = documents.map(doc => hashShingles(doc))
+    val hashedShingles: Seq[HashedShingles] = documents.map(doc => hashShingles(doc))
       .toIndexedSeq
-      .zipWithIndex
 
     val coeffs = randomHashCoefficients(minHashFunctions)
-    val signatures: Seq[(Int, Seq[Int])] = hashedDocuments.map(doc => {
-      (doc._2, minHash(doc._1, coeffs))
-    })
-
-    val sigItems = signatures.map(_._2)
-    val hashedItems = hashedDocuments.map(_._1)
+    val signatures = hashedShingles.map(doc => minHash(doc, coeffs))
 
     println("Using a threshold size of " + threshold)
     println("Using shingle size of " + shingleSize)
@@ -53,9 +47,9 @@ object Minhash extends App {
 
     // Measure time of running minhash similarities and jaccard similarity
     println("Running check with Minhash similarity")
-    time(compare(sim, sigItems, files))
+    time(compare(sim, signatures, files))
     println("Running check with Jaccard similarity")
-    time(compare(jacc, hashedItems, files))
+    time(compare(jacc, hashedShingles, files))
     print("\n")
   }
 
@@ -92,10 +86,16 @@ object Minhash extends App {
     * @return Document
     */
   private def getShinglesFromFile(name: String, shingleSize: Int): Document = {
-    Source.fromFile(name) match {
-      case source =>  source.toList.sliding(shingleSize).map(_.mkString).toSet
-      case _ => Set.empty[String]
+    val res = Try(Source.fromFile(name).toList.sliding(shingleSize).map(_.mkString).toSet)
+    res match {
+      case Success(shingles) => shingles
+      case Failure(e) => {
+        println(e.getMessage)
+        System.exit(1)
+        Set.empty[String]
+      }
     }
+
   }
 
   /** For each Document, convert k-shingles to integers
