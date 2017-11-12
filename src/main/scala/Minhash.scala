@@ -95,7 +95,6 @@ object Minhash extends App {
         Set.empty[String]
       }
     }
-
   }
 
   /** For each Document, convert k-shingles to integers
